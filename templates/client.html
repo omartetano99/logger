@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Client Details - Keylogger Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            padding-top: 2rem;
+        }
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 1.5rem;
+            transition: transform 0.3s;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        .card-header {
+            font-weight: bold;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            background-color: #212529;
+            color: white;
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+        }
+        .navbar {
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .empty-state {
+            text-align: center;
+            padding: 3rem 0;
+            color: #6c757d;
+        }
+        .log-entry {
+            border-left: 3px solid #0d6efd;
+            padding-left: 1rem;
+            margin-bottom: 1rem;
+        }
+        .log-content {
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            background-color: #f8f9fa;
+            padding: 1rem;
+            border-radius: 5px;
+            font-size: 0.85rem;
+        }
+        .badge-keylog {
+            background-color: #0d6efd;
+        }
+        .badge-screenshot {
+            background-color: #198754;
+        }
+        .badge-clipboard {
+            background-color: #dc3545;
+        }
+        .badge-audio {
+            background-color: #6610f2;
+        }
+        .badge-system {
+            background-color: #fd7e14;
+        }
+        .badge-unknown {
+            background-color: #6c757d;
+        }
+        .timestamp {
+            font-size: 0.75rem;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">Keylogger Dashboard</a>
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link" href="/">Back to All Clients</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        Client Details: <span class="text-warning">{{ client_id }}</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-12">
+                                <h5 class="mb-3">Received Logs</h5>
+                                
+                                {% if logs %}
+                                    <div id="logContainer">
+                                        {% for log in logs %}
+                                            <div class="log-entry">
+                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                    <div>
+                                                        <span class="badge 
+                                                            {% if log.type == 'keylog' %}badge-keylog
+                                                            {% elif log.type == 'screenshot' %}badge-screenshot
+                                                            {% elif log.type == 'clipboard' %}badge-clipboard
+                                                            {% elif log.type == 'audio' %}badge-audio
+                                                            {% elif log.type == 'system' %}badge-system
+                                                            {% else %}badge-unknown{% endif %} me-2">
+                                                            {{ log.type }}
+                                                        </span>
+                                                    </div>
+                                                    <span class="timestamp">{{ log.timestamp }}</span>
+                                                </div>
+                                                <div class="log-details mb-3" data-file="{{ log.filename }}">
+                                                    <button class="btn btn-sm btn-outline-primary view-log-btn">View Details</button>
+                                                </div>
+                                                <div class="log-content d-none" id="content-{{ loop.index }}"></div>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <div class="empty-state">
+                                        <h4>No logs available</h4>
+                                        <p>Logs will appear here once received</p>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // JavaScript to handle log viewing
+        document.addEventListener('DOMContentLoaded', function() {
+            const viewButtons = document.querySelectorAll('.view-log-btn');
+            
+            viewButtons.forEach((btn, index) => {
+                btn.addEventListener('click', function() {
+                    const logDetails = this.parentElement;
+                    const fileName = logDetails.dataset.file;
+                    const contentDiv = document.getElementById(`content-${index + 1}`);
+                    
+                    if (contentDiv.classList.contains('d-none')) {
+                        // Show content (fetch if not already loaded)
+                        if (contentDiv.innerHTML === '') {
+                            contentDiv.innerHTML = 'Loading...';
+                            fetch(`/api/log/{{ client_id }}/${fileName}`)
+                                .then(response => response.json())
+                                .then(data => {
+                                    let content = '';
+                                    
+                                    // Format based on type
+                                    if (data.type === 'keylog') {
+                                        content = `<pre>${data.content}</pre>`;
+                                    } else if (data.type === 'screenshot') {
+                                        if (data.file_screenshot) {
+                                            content = `<img src="${data.file_screenshot}" class="img-fluid" alt="Screenshot">`;
+                                        } else {
+                                            content = `<pre>${data.content}</pre>`;
+                                        }
+                                    } else {
+                                        content = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                                    }
+                                    
+                                    contentDiv.innerHTML = content;
+                                })
+                                .catch(error => {
+                                    contentDiv.innerHTML = `<div class="alert alert-danger">Error loading data: ${error}</div>`;
+                                });
+                        }
+                        
+                        contentDiv.classList.remove('d-none');
+                        this.textContent = 'Hide Details';
+                    } else {
+                        contentDiv.classList.add('d-none');
+                        this.textContent = 'View Details';
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
